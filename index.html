@@ -3,24 +3,77 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<!-- 强制浏览器保持黑底，防止夜间模式反转颜色 -->
 <meta name="color-scheme" content="dark">
-<!-- 这里改成了你的专属标题 -->
 <title>1017 small mint</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    height: 100%; overflow: hidden; 
-    background-color: #000 !important; /* 强制纯黑 */
-    touch-action: none;
+    height: 100%; overflow: hidden; background-color: #000 !important; touch-action: none;
   }
-  canvas { display: block; background-color: #000; }
+  canvas#heartCanvas { display: block; background-color: #000; }
+
+  /* 左下角的小兔子音乐按钮 */
+  .music-btn {
+    position: fixed; bottom: 30px; left: 30px;
+    width: 60px; height: 60px;
+    display: none; /* 默认隐藏，被拦截时才出现 */
+    justify-content: center; align-items: center;
+    cursor: pointer; z-index: 100;
+    /* 让兔子有轻微的呼吸浮动感 */
+    animation: floatBunny 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes floatBunny {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-8px); }
+  }
+
+  /* 兔子耳朵动画 */
+  .bunny-ear {
+    transform-origin: bottom center;
+    animation: wiggle 1.5s ease-in-out infinite alternate;
+  }
+  .bunny-ear.right {
+    animation-delay: 0.2s;
+  }
+
+  @keyframes wiggle {
+    0% { transform: rotate(-5deg); }
+    100% { transform: rotate(5deg); }
+  }
 </style>
 </head>
 <body>
-
-<!-- 纯净的画布，没有任何文字干扰 -->
 <canvas id="heartCanvas"></canvas>
+
+<!-- 纯 SVG 绘制的可爱小兔子 -->
+<div class="music-btn" id="musicBtn" title="点击播放音乐">
+  <svg viewBox="0 0 100 100" width="100%" height="100%">
+    <!-- 粉色左耳 -->
+    <g class="bunny-ear left">
+      <ellipse cx="35" cy="30" rx="8" ry="22" fill="#fff" stroke="#a2ccff" stroke-width="2"/>
+      <ellipse cx="35" cy="30" rx="4" ry="15" fill="#ffb8d0" />
+    </g>
+    <!-- 粉色右耳 -->
+    <g class="bunny-ear right">
+      <ellipse cx="65" cy="30" rx="8" ry="22" fill="#fff" stroke="#a2ccff" stroke-width="2"/>
+      <ellipse cx="65" cy="30" rx="4" ry="15" fill="#ffb8d0" />
+    </g>
+    <!-- 兔脸 -->
+    <ellipse cx="50" cy="65" rx="28" ry="24" fill="#fff" stroke="#a2ccff" stroke-width="2"/>
+    <!-- 红脸蛋 -->
+    <ellipse cx="32" cy="72" rx="5" ry="3" fill="#ffb8d0" opacity="0.8"/>
+    <ellipse cx="68" cy="72" rx="5" ry="3" fill="#ffb8d0" opacity="0.8"/>
+    <!-- 眼睛 -->
+    <circle cx="38" cy="60" r="3" fill="#333"/>
+    <circle cx="62" cy="60" r="3" fill="#333"/>
+    <!-- 鼻子 -->
+    <path d="M 47 68 L 53 68 L 50 72 Z" fill="#ff8fab"/>
+    <!-- 嘴巴 -->
+    <path d="M 50 72 Q 45 78 42 75" fill="none" stroke="#333" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M 50 72 Q 55 78 58 75" fill="none" stroke="#333" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>
+</div>
 
 <audio id="bgMusic" loop>
   <source src="letter.mp3" type="audio/mpeg">
@@ -30,29 +83,37 @@
   const canvas = document.getElementById('heartCanvas');
   const ctx = canvas.getContext('2d');
   const audio = document.getElementById('bgMusic');
+  const musicBtn = document.getElementById('musicBtn');
   let W, H;
 
-  // 屏幕自适应
-  function resize() {
-    W = canvas.width = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-  }
+  function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
   resize();
   window.addEventListener('resize', resize);
 
-  // 只保留点击播放音乐的功能，去掉了文字消失逻辑
-  const startExperience = () => {
-    audio.play().catch(e => console.log("等待用户交互播放:", e));
-    document.body.removeEventListener('click', startExperience);
-    document.body.removeEventListener('touchstart', startExperience);
+  // 尝试播放音乐
+  const playMusic = () => {
+    audio.play().then(() => {
+      musicBtn.style.display = 'none'; // 播放成功，隐藏小兔子
+    }).catch(e => {
+      musicBtn.style.display = 'flex'; // 播放失败，显示小兔子
+    });
   };
-  document.body.addEventListener('click', startExperience);
-  document.body.addEventListener('touchstart', startExperience);
 
+  // 监听整个屏幕的首次点击
+  document.body.addEventListener('click', function initialClick() {
+    playMusic();
+    document.body.removeEventListener('click', initialClick);
+  });
+
+  // 点击小兔子播放（防止点小兔子触发全局事件）
+  musicBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); 
+    playMusic();
+  });
+
+  // --- 爱心动画逻辑（保持原样） ---
   class Particle {
-    constructor() {
-      this.reset();
-    }
+    constructor() { this.reset(); }
     reset() {
       this.t = Math.random() * Math.PI * 2;
       this.isInner = Math.random() > 0.35;
@@ -63,23 +124,15 @@
     }
     draw(timeVal) {
       const timeSec = timeVal / 1000;
-      
-      // 爱心公式
       const xBase = 16 * Math.pow(Math.sin(this.t), 3);
       const yBase = -(13 * Math.cos(this.t) - 5 * Math.cos(2 * this.t) - 2 * Math.cos(3 * this.t) - Math.cos(4 * this.t));
-      
-      // 缩放与跳动
       const scale = (Math.min(W, H) / 800) * 13;
       const pulse = 1 + Math.sin(timeSec * 3) * 0.06;
-      
-      // 噪声（空气扰动感）
       const noiseX = Math.sin(timeSec * 2 + this.phase) * 5;
       const noiseY = Math.cos(timeSec * 2 + this.phase) * 5;
-      
       const x = W / 2 + (xBase * this.offset * scale * pulse) + noiseX;
       const y = H / 2 + (yBase * this.offset * scale * pulse) + noiseY;
 
-      // 拖尾效果（残影）
       this.trail.push({x, y});
       if (this.trail.length > 4) this.trail.shift();
       
@@ -89,24 +142,17 @@
         if (r > 0.5) {
           ctx.beginPath();
           ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
-          // 纯透明度控制，绝不卡顿
-          ctx.fillStyle = this.isInner 
-            ? `rgba(50, 150, 255, ${ratio * 0.4})` 
-            : `rgba(120, 230, 255, ${ratio * 0.6})`;
+          ctx.fillStyle = this.isInner ? `rgba(50, 150, 255, ${ratio * 0.4})` : `rgba(120, 230, 255, ${ratio * 0.6})`;
           ctx.fill();
         }
       });
 
-      // 主体粒子
       const alpha = 0.6 + Math.sin(timeSec * 4 + this.phase) * 0.4;
       const r = this.baseSize * alpha;
-      
       if (r > 0) {
-        // 纯色发光算法，不用 shadowBlur（极其流畅）
         const cr = Math.min(255, Math.floor((this.isInner ? 50 : 120) * alpha * 1.5));
         const cg = Math.min(255, Math.floor((this.isInner ? 150 : 230) * alpha * 1.5));
         const cb = 255;
-        
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fillStyle = `rgb(${cr}, ${cg}, ${cb})`;
@@ -115,25 +161,16 @@
     }
   }
 
-  // 初始化 1500 个粒子（流畅与视觉密度的完美平衡点）
   const particles = [];
-  for (let i = 0; i < 1500; i++) {
-    particles.push(new Particle());
-  }
+  for (let i = 0; i < 1500; i++) particles.push(new Particle());
 
-  // 动画循环
   function animate(timeVal) {
-    // 用纯黑+极低透明度覆盖，形成干净深邃的拖影
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.fillRect(0, 0, W, H);
-    
-    // 【关键】不使用 globalCompositeOperation = 'lighter'，杜绝泛白卡死
     particles.forEach(p => p.draw(timeVal));
-
     requestAnimationFrame(animate);
   }
   
-  // 启动
   requestAnimationFrame(animate);
 </script>
 </body>
