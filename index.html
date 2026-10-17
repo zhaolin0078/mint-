@@ -12,14 +12,14 @@
   }
   canvas#heartCanvas { display: block; background-color: #000; }
 
-  /* 左下角的小兔子音乐按钮 */
+  /* 固定在左下角的小兔子 */
   .music-btn {
     position: fixed; bottom: 30px; left: 30px;
-    width: 60px; height: 60px;
-    display: none; /* 默认隐藏，被拦截时才出现 */
+    width: 65px; height: 65px;
+    /* 这次默认让它显示出来！ */
+    display: flex; 
     justify-content: center; align-items: center;
     cursor: pointer; z-index: 100;
-    /* 让兔子有轻微的呼吸浮动感 */
     animation: floatBunny 2s ease-in-out infinite alternate;
   }
 
@@ -38,15 +38,20 @@
   }
 
   @keyframes wiggle {
-    0% { transform: rotate(-5deg); }
-    100% { transform: rotate(5deg); }
+    0% { transform: rotate(-8deg); }
+    100% { transform: rotate(8deg); }
+  }
+  
+  /* 播放时兔子周围的光圈 */
+  .music-btn.playing {
+    filter: drop-shadow(0 0 15px rgba(120, 230, 255, 0.8));
   }
 </style>
 </head>
 <body>
 <canvas id="heartCanvas"></canvas>
 
-<!-- 纯 SVG 绘制的可爱小兔子 -->
+<!-- 可爱的小兔子 -->
 <div class="music-btn" id="musicBtn" title="点击播放音乐">
   <svg viewBox="0 0 100 100" width="100%" height="100%">
     <!-- 粉色左耳 -->
@@ -90,28 +95,42 @@
   resize();
   window.addEventListener('resize', resize);
 
-  // 尝试播放音乐
+  // 核心播放逻辑
+  let isPlaying = false;
   const playMusic = () => {
+    // 如果已经在播放，就不重复执行了
+    if (isPlaying) return; 
+    
     audio.play().then(() => {
-      musicBtn.style.display = 'none'; // 播放成功，隐藏小兔子
+      isPlaying = true;
+      // 播放成功，给小兔子加个发光特效，但保留小兔子
+      musicBtn.classList.add('playing'); 
     }).catch(e => {
-      musicBtn.style.display = 'flex'; // 播放失败，显示小兔子
+      // 播放失败（被拦截），什么都不做，等用户点
+      console.log("播放被拦截", e);
     });
   };
 
-  // 监听整个屏幕的首次点击
-  document.body.addEventListener('click', function initialClick() {
-    playMusic();
-    document.body.removeEventListener('click', initialClick);
-  });
+  // 1. 点屏幕任何地方尝试播放
+  document.body.addEventListener('click', playMusic);
+  document.body.addEventListener('touchstart', playMusic);
 
-  // 点击小兔子播放（防止点小兔子触发全局事件）
+  // 2. 点小兔子强制播放（阻止事件冒泡）
   musicBtn.addEventListener('click', (e) => {
     e.stopPropagation(); 
     playMusic();
+    // 点兔子时，如果实在拦截严重，稍微延迟后再试一次
+    setTimeout(() => { if(!isPlaying) audio.play(); }, 100);
   });
 
-  // --- 爱心动画逻辑（保持原样） ---
+  // 页面加载完立刻试一次
+  window.addEventListener('load', () => {
+    // 部分安卓机允许无交互静音播放，部分不允许
+    audio.volume = 0.6; // 默认音量稍微小一点
+    playMusic();
+  });
+
+  // --- 爱心动画逻辑 ---
   class Particle {
     constructor() { this.reset(); }
     reset() {
