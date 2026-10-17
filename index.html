@@ -3,33 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<!-- 强制浏览器保持黑底，防止夜间模式反转颜色 -->
+<meta name="color-scheme" content="dark">
+<!-- 这里改成了你的专属标题 -->
 <title>1017 small mint</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
-    height: 100%; overflow: hidden; background: #05050a; touch-action: none;
+    height: 100%; overflow: hidden; 
+    background-color: #000 !important; /* 强制纯黑 */
+    touch-action: none;
   }
-  canvas { display: block; }
-  
-  /* 底部提示文字，点击后消失 */
-  .message {
-    position: fixed; bottom: 15%; width: 100%; text-align: center;
-    color: #a2ccff; font-size: 20px; font-family: 'Microsoft YaHei', sans-serif;
-    letter-spacing: 4px; text-shadow: 0 0 15px #4a90d9; pointer-events: none;
-    animation: breathe 3s ease-in-out infinite; transition: opacity 0.5s;
-  }
-  @keyframes breathe {
-    0%, 100% { opacity: 0.6; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.05); }
-  }
+  canvas { display: block; background-color: #000; }
 </style>
 </head>
 <body>
 
+<!-- 纯净的画布，没有任何文字干扰 -->
 <canvas id="heartCanvas"></canvas>
-<div class="message" id="msg">点击屏幕，收下这颗心</div>
 
-<!-- 音乐标签，请确保 letter.mp3 和这个网页在同一个文件夹 -->
 <audio id="bgMusic" loop>
   <source src="letter.mp3" type="audio/mpeg">
 </audio>
@@ -38,7 +30,6 @@
   const canvas = document.getElementById('heartCanvas');
   const ctx = canvas.getContext('2d');
   const audio = document.getElementById('bgMusic');
-  const msg = document.getElementById('msg');
   let W, H;
 
   // 屏幕自适应
@@ -49,17 +40,15 @@
   resize();
   window.addEventListener('resize', resize);
 
-  // 突破浏览器限制，点击后播放音乐并隐藏文字
+  // 只保留点击播放音乐的功能，去掉了文字消失逻辑
   const startExperience = () => {
     audio.play().catch(e => console.log("等待用户交互播放:", e));
-    msg.style.opacity = 0;
     document.body.removeEventListener('click', startExperience);
     document.body.removeEventListener('touchstart', startExperience);
   };
   document.body.addEventListener('click', startExperience);
   document.body.addEventListener('touchstart', startExperience);
 
-  // 粒子类（复刻 Python 逻辑）
   class Particle {
     constructor() {
       this.reset();
@@ -83,14 +72,14 @@
       const scale = (Math.min(W, H) / 800) * 13;
       const pulse = 1 + Math.sin(timeSec * 3) * 0.06;
       
-      // 噪声
+      // 噪声（空气扰动感）
       const noiseX = Math.sin(timeSec * 2 + this.phase) * 5;
       const noiseY = Math.cos(timeSec * 2 + this.phase) * 5;
       
       const x = W / 2 + (xBase * this.offset * scale * pulse) + noiseX;
       const y = H / 2 + (yBase * this.offset * scale * pulse) + noiseY;
 
-      // 拖尾效果
+      // 拖尾效果（残影）
       this.trail.push({x, y});
       if (this.trail.length > 4) this.trail.shift();
       
@@ -100,7 +89,7 @@
         if (r > 0.5) {
           ctx.beginPath();
           ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
-          // 用透明度模拟拖尾
+          // 纯透明度控制，绝不卡顿
           ctx.fillStyle = this.isInner 
             ? `rgba(50, 150, 255, ${ratio * 0.4})` 
             : `rgba(120, 230, 255, ${ratio * 0.6})`;
@@ -113,36 +102,32 @@
       const r = this.baseSize * alpha;
       
       if (r > 0) {
-        // 核心提亮计算
+        // 纯色发光算法，不用 shadowBlur（极其流畅）
         const cr = Math.min(255, Math.floor((this.isInner ? 50 : 120) * alpha * 1.5));
         const cg = Math.min(255, Math.floor((this.isInner ? 150 : 230) * alpha * 1.5));
-        const cb = Math.min(255, Math.floor((this.isInner ? 255 : 255) * alpha * 1.5));
+        const cb = 255;
         
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fillStyle = `rgb(${cr}, ${cg}, ${cb})`;
-        ctx.shadowColor = '#4a90d9';
-        ctx.shadowBlur = this.isInner ? 5 : 15; // 发光特效
         ctx.fill();
       }
     }
   }
 
-  // 初始化 2000 个粒子
+  // 初始化 1500 个粒子（流畅与视觉密度的完美平衡点）
   const particles = [];
-  for (let i = 0; i < 2000; i++) {
+  for (let i = 0; i < 1500; i++) {
     particles.push(new Particle());
   }
 
   // 动画循环
   function animate(timeVal) {
-    // 用深色半透明覆盖，形成残影，颜色更融合
-    ctx.fillStyle = 'rgba(5, 5, 10, 0.3)';
+    // 用纯黑+极低透明度覆盖，形成干净深邃的拖影
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.fillRect(0, 0, W, H);
     
-    // 开启网页端的加色发光模式（堪比 BLEND_RGBA_ADD）
-    ctx.globalCompositeOperation = 'lighter';
-
+    // 【关键】不使用 globalCompositeOperation = 'lighter'，杜绝泛白卡死
     particles.forEach(p => p.draw(timeVal));
 
     requestAnimationFrame(animate);
